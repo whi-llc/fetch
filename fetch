@@ -1,0 +1,53 @@
+#!/bin/bash
+usage() {
+    cat <<EOF
+Usage: $0 [options] [file]
+Fetch file file from or display directory on CDDIS
+
+If [file] is missing and '-d dir' is specified that directory is
+displayed.
+
+If [file] is present and the directory is not the same as the first
+six characters of [file], specify the directory with '-d dir'.
+
+Options:
+ -d dir   directory for the year
+ -h       Print this message
+ -y yyyy  Specify different (four-digit) year than the current one
+EOF
+}
+
+year=$(date +%Y)
+dir=
+while getopts 'hd:y:' opt; do
+    case $opt in
+        d)
+            dir=$OPTARG
+            dir_option=1
+            ;;
+        y)
+            year=$OPTARG
+            ;;
+        h)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Try the '-h' option for help" >&2
+            exit 1
+    esac
+done
+shift $((OPTIND - 1))
+
+file=$1
+if [[ -z "$dir" ]]; then
+    dir=${file:0:6}
+fi
+if [[ -z "$dir" ]]; then
+    exit 0
+fi
+if [[ -n "$file" ]]; then
+  curl -u "anonymous:" -k -O --ftp-ssl "ftp://gdc.cddis.eosdis.nasa.gov/vlbi/ivsdata/aux/$year/$dir/$file"
+else
+  curl -u "anonymous:" -k --ftp-ssl "ftp://gdc.cddis.eosdis.nasa.gov/vlbi/ivsdata/aux/$year/$dir/"
+fi
