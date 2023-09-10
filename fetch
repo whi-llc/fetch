@@ -1,7 +1,7 @@
 #!/bin/bash
 usage() {
     cat <<EOF
-Usage: $0 [options] [file]
+Usage: $(basename $0) [options] [file]
 Fetch file file from or display directory on CDDIS
 
 If [file] is missing and '-d dir' is specified that directory is
@@ -47,7 +47,7 @@ if [[ -z "$dir" ]]; then
     exit 0
 fi
 if [[ -n "$file" ]]; then
-  curl -u "anonymous:" -k -O --ftp-ssl "ftp://gdc.cddis.eosdis.nasa.gov/vlbi/ivsdata/aux/$year/$dir/$file"
+  curl -u "anonymous:" -k -O --ssl-reqd "ftp://gdc.cddis.eosdis.nasa.gov/vlbi/ivsdata/aux/$year/$dir/$file"
 else
-  curl -u "anonymous:" -k --ftp-ssl "ftp://gdc.cddis.eosdis.nasa.gov/vlbi/ivsdata/aux/$year/$dir/"
+  curl -u "anonymous:" -k --ssl-reqd "ftp://gdc.cddis.eosdis.nasa.gov/vlbi/ivsdata/aux/$year/$dir/"
 fi
