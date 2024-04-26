@@ -2,31 +2,121 @@
 usage() {
     cat <<EOF
 Usage: $(basename $0) [options] [file]
-Fetch file file from or display directory on CDDIS
-
-If [file] is missing and '-d dir' is specified that directory is
-displayed.
-
-If [file] is present and the directory is not the same as the first
-six characters of [file], specify the directory with '-d dir'.
+Fetch file [file], or display directory, from CDDIS
 
 Options:
- -d dir   directory for the year
- -h       Print this message
- -y yyyy  Specify different (four-digit) year than the current one
+ -d dir   Specify a different directory within the year
+ -h       Print this message, append '|less' to view it a
+          page at a time
+ -p       Interpret [file] as the full path
+ -T       Test run, print command that would be executed
+ -V       Print version and exit
+ -y yyyy  Specify a different (four-digit) year than the current one
+
+Without the '-p' option, the script will try to figure out where the
+file is:
+
+  If [file] ends in '.tgz' it is assumed to be a vgosDB and resides in
+  '/vlbi/ivsata/vgosdb' in the year sub-directory specified by the
+  first four characters of [file].  The '-d' option is not permitted
+  in this case.
+
+  Otherwise [file] is assumed to be in '/vlbi/ivsdata/aux/':
+
+    The year sub-directory is assumed to be the current year.  The
+    experiment sub-directory is assumed to be the first six characters
+    of [file].  If the experiment sub-directory is not the same as the
+    first six characters of [file], specify the directory with the
+    '-d' option.
+
+    If [file] is not from the current year, specify the year with the
+    '-y' option.
+
+    If [file] is missing and '-d dir' is specified, that directory is
+    displayed.  The entire year sub-directory can be displayed by
+    using '-d /'.  The entire 'aux' directory can be displayed by
+    also adding '-y /'.
+
+If the '-p' option is specified, [file] can be an arbitrary file or
+directory starting with '/'.  Use '/vlbi/ivsdata' as the start of
+[file] to access IVS data.  To display a directory, end [file] with a
+'/'.  The '-d' and '-y' options are not permitted with '-p'.
+
+A download is successful if the displayed transfer statistic are
+meaningful and no error is reported.  The downloaded file is placed in
+the current directory.
+
+The '-T' option will show the transfer command without executing it.
+This is useful for debugging or parts of the command can be
+copied-and-pasted to construct other commands manually.
+
+Examples:
+
+   1. Download 'vo4045oe.log':
+
+        fetch vo4045oe.log
+
+      If the current year is not 2024, then use:
+
+        fetch -y 2024 vo4045oe.log
+
+   2. Display the contents of the 'vo4045' directory:
+
+        fetch -d vo4045
+
+      If the current year is not 2024, then use:
+
+        fetch -y 2024 -d vo4045
+
+   3. Download vgosDB '20240214-vo4045.tgz':
+
+        fetch 20240214-vo4045.tgz
+
+   4. Download 'rv109hh.log':
+
+        fetch -y 2015 -d rv109 rv109hh.log
+
+   5. Display the contents of the 'rv109' directory:
+
+        fetch -y 2015 -d rv109
+
+   6. Display the contents of the 'aux/2015' sub-directory:
+
+        fetch -y 2015 -d /
+
+   7. Download '/vlbi/ivsdata/ivs-index.txt':
+
+        fetch -p /vlbi/ivsdata/ivs-index.txt
+
+   8. Display the contents of '/vlbi/ivsdata':
+
+        fetch -p /vlbi/ivsdata/
 EOF
 }
 
-year=$(date +%Y)
+DRY=
 dir=
-while getopts 'hd:y:' opt; do
+psth_option=
+type=
+year=$(date +%Y)
+while getopts 'd:hpTVy:' opt; do
     case $opt in
         d)
             dir=$OPTARG
-            dir_option=1
+            ;;
+        p)
+            path_option=1
+            ;;
+        T)
+            DRY=echo
+            ;;
+        V)
+            echo [fetch 0.2]
+            exit 0
             ;;
         y)
             year=$OPTARG
+            year_option=1
             ;;
         h)
             usage
@@ -38,16 +128,32 @@ while getopts 'hd:y:' opt; do
     esac
 done
 shift $((OPTIND - 1))
-
 file=$1
-if [[ -z "$dir" ]]; then
-    dir=${file:0:6}
-fi
-if [[ -z "$dir" ]]; then
-    exit 0
-fi
-if [[ -n "$file" ]]; then
-  curl -u "anonymous:" -k -O --ssl-reqd "ftp://gdc.cddis.eosdis.nasa.gov/vlbi/ivsdata/aux/$year/$dir/$file"
+if [[ -n "$path_option" ]]; then
+    if [[ -n "$dir" || -n "$year_option" ]]; then
+        echo "-d and -y can't be used with -p"
+        exit 1
+    fi
+    path=$file
 else
-  curl -u "anonymous:" -k --ssl-reqd "ftp://gdc.cddis.eosdis.nasa.gov/vlbi/ivsdata/aux/$year/$dir/"
+    if [[ .tgz == ${file: -4} ]]; then
+        if [[ -n "$dir" ]]; then
+            echo "-d can't be used with auto-detected vgosDB"
+            exit 1
+        fi
+        if [[ -z "$year_option" ]]; then
+            year=${file:0:4}
+        fi
+        path="vlbi/ivsdata/vgosdb/$year/$file"
+    else
+        if [[ -z "$dir" ]]; then
+            dir=${file:0:6}
+        fi
+        path="vlbi/ivsdata/aux/$year/$dir/$file"
+     fi
+fi
+if [[ / == "${path: -1}" ]]; then
+  $DRY curl -u "anonymous:" -k --ssl-reqd "ftp://gdc.cddis.eosdis.nasa.gov/$path"
+else
+  $DRY curl -u "anonymous:" -k -O --ssl-reqd "ftp://gdc.cddis.eosdis.nasa.gov/$path"
 fi
