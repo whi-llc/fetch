@@ -132,7 +132,7 @@ while getopts 'd:hpTVy:' opt; do
             DRY=echo
             ;;
         V)
-            echo [fetch 0.2.2]
+            echo [fetch 0.2.3]
             exit 0
             ;;
         y)
@@ -152,14 +152,22 @@ shift $((OPTIND - 1))
 file=$1
 if [[ -n "$path_option" ]]; then
     if [[ -n "$dir" || -n "$year_option" ]]; then
-        echo "-d and -y can't be used with -p"
+        echo "The '-d' and '-y' options can't be used with '-p'."
+        exit 1
+    elif [[ -z "$file" ]]; then
+        echo "Must specify a file or directory/ as 'file' argument"
+        echo "Try '$(basename $0) -h' for help"
         exit 1
     fi
     path=$file
 else
-    if [[ .tgz == ${file: -4} ]]; then
+    if [[ -z "$dir" && -z "$file" ]]; then
+        echo "Must specify a file or '-d' option"
+        echo "Try '$(basename $0) -h' for help"
+        exit 1
+    elif [[ .tgz == ${file: -4} ]]; then
         if [[ -n "$dir" ]]; then
-            echo "-d can't be used with auto-detected vgosDB"
+            echo "The '-d' option can't be used with auto-detected vgosDB"
             exit 1
         fi
         if [[ -z "$year_option" ]]; then
